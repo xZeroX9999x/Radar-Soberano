@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "radar-soberano"
+version = "4.5.0"
+description = "Motor Quantamental de análisis bursátil — escáner SEC con filtros fundamentales y técnicos."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Radar Soberano" }]
+keywords = ["finance", "stocks", "quantitative", "trading", "rsi", "sec"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Intended Audience :: Financial and Insurance Industry",
+]
+dependencies = [
+    "pandas>=2.0.0",
+    "yfinance>=0.2.40",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.0",
+]
+web = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+]
+
+[project.scripts]
+radar-soberano = "radar_soberano.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/your-username/radar-soberano"
+Issues = "https://github.com/your-username/radar-soberano/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["radar_soberano*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"radar_soberano.web" = ["static/*.html", "static/*.css", "static/*.js"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

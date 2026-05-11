@@ -1,0 +1,2209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Radar Soberano</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e0d;
+    --bg-2: #11171a;
+    --bg-3: #1a2126;
+    --bg-card: #131a1f;
+    --border: #2a3540;
+    --border-soft: #1d262c;
+    --text: #d8e0e8;
+    --text-dim: #7a8896;
+    --text-faint: #4a5560;
+    --accent: #c4f000;       /* verde lima Bloomberg-ish */
+    --accent-glow: #c4f00033;
+    --buy: #00d97e;
+    --sell: #ff5757;
+    --wait: #f0b400;
+    --buffett: #d4af37;
+    --info: #5fa8ff;
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(196, 240, 0, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 100%, rgba(95, 168, 255, 0.03) 0%, transparent 40%);
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .brand h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .brand h1 span { color: var(--accent); }
+  .brand .tagline {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .brand .version {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+
+  .status-strip {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .status-pill {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
+  }
+  .status-pill .label {
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .status-pill .value {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .status-pill .value.ok { color: var(--buy); }
+  .status-pill .value.warn { color: var(--wait); }
+
+  /* ============ TABS ============ */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .tab {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px 20px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ============ CARDS ============ */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2::before {
+    content: '';
+    width: 3px;
+    height: 16px;
+    background: var(--accent);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 720px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .status-strip { width: 100%; justify-content: space-between; }
+  }
+
+  /* ============ FORM CONTROLS ============ */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .field label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .field .hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+  input[type="text"], input[type="number"], select {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 9px 12px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s;
+  }
+  .checkbox-row:hover { border-color: var(--accent); }
+  .checkbox-row input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+  }
+  .checkbox-row .desc {
+    flex: 1;
+    font-size: 12px;
+  }
+  .checkbox-row .desc strong {
+    display: block;
+    color: var(--text);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  .checkbox-row .desc small { color: var(--text-dim); font-size: 11px; }
+
+  .buffett-config {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+    display: none;
+  }
+  .buffett-config.active { display: block; }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--bg);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
+  .btn-ghost {
+    background: transparent;
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  /* ============ STATS CARDS ============ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-tile {
+    background: var(--bg-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    padding: 16px 18px;
+    border-left: 3px solid var(--accent);
+  }
+  .stat-tile .label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .stat-tile .value {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .stat-tile .sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+  .stat-tile.accent { border-left-color: var(--accent); }
+  .stat-tile.buy { border-left-color: var(--buy); }
+  .stat-tile.sell { border-left-color: var(--sell); }
+  .stat-tile.warn { border-left-color: var(--wait); }
+
+  /* ============ TABLE ============ */
+  .table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  th {
+    background: var(--bg-2);
+    color: var(--text-dim);
+    font-weight: 500;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border-soft);
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-2); }
+  td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+  td.ticker { font-weight: 700; color: var(--accent); }
+  .verdict {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    display: inline-block;
+  }
+  .verdict.buy { background: rgba(0, 217, 126, 0.15); color: var(--buy); }
+  .verdict.sell { background: rgba(255, 87, 87, 0.15); color: var(--sell); }
+  .verdict.wait { background: rgba(240, 180, 0, 0.12); color: var(--wait); }
+  .verdict.buffett { background: rgba(212, 175, 55, 0.15); color: var(--buffett); }
+  .verdict.foco { background: rgba(255, 87, 87, 0.1); color: var(--sell); }
+
+  /* ============ TERMINAL / LOGS ============ */
+  .terminal {
+    background: #06090a;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    height: 320px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #a8c0d4;
+  }
+  .terminal::-webkit-scrollbar { width: 8px; }
+  .terminal::-webkit-scrollbar-track { background: #06090a; }
+  .terminal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .terminal .log-line { white-space: pre-wrap; word-break: break-all; }
+  .terminal .log-line.info { color: #a8c0d4; }
+  .terminal .log-line.warning { color: var(--wait); }
+  .terminal .log-line.error { color: var(--sell); }
+  .terminal .empty {
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  /* ============ ALERTS ============ */
+  .alert {
+    background: var(--bg-2);
+    border-left: 3px solid var(--info);
+    padding: 12px 16px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .alert.success { border-left-color: var(--buy); }
+  .alert.error { border-left-color: var(--sell); }
+
+  .hidden { display: none !important; }
+
+  /* ============ LOADING SPINNER ============ */
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--text-dim);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============ HELP TEXT ============ */
+  .help-section {
+    background: var(--bg-2);
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-top: 16px;
+  }
+  .help-section h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .help-section p {
+    color: var(--text-dim);
+    font-size: 11.5px;
+    line-height: 1.7;
+  }
+  .help-section p + p { margin-top: 6px; }
+  .help-section code {
+    background: var(--bg-3);
+    color: var(--accent);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 11px;
+  }
+
+  /* ============ TICKER CHIP ============ */
+  .ticker-search {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .ticker-search input { flex: 1; }
+
+  /* ============ CACHE STATUS ============ */
+  .cache-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--bg-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }
+  .cache-row .info { display: flex; flex-direction: column; gap: 2px; }
+  .cache-row .info .lbl { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.1em; }
+  .cache-row .info .val { font-size: 14px; color: var(--text); font-weight: 500; }
+
+  /* ============ OPPORTUNITY CARDS ============ */
+  .opp-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .opp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .opp-header:hover { background: var(--bg-3); }
+  .opp-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .opp-ticker-big {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .opp-name {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .opp-toggle {
+    color: var(--text-dim);
+    font-size: 18px;
+    transition: transform 0.2s;
+  }
+  .opp-card.expanded .opp-toggle {
+    transform: rotate(180deg);
+  }
+
+  .opp-action-banner {
+    padding: 14px 20px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .opp-action-banner.buy-now {
+    background: rgba(0, 217, 126, 0.12);
+    border-left: 3px solid var(--buy);
+    color: var(--buy);
+  }
+  .opp-action-banner.cerca {
+    background: rgba(240, 180, 0, 0.12);
+    border-left: 3px solid var(--wait);
+    color: var(--wait);
+  }
+  .opp-action-banner.esperar {
+    background: rgba(95, 168, 255, 0.10);
+    border-left: 3px solid var(--info);
+    color: var(--info);
+  }
+  .opp-action-banner.caro {
+    background: rgba(255, 87, 87, 0.12);
+    border-left: 3px solid var(--sell);
+    color: var(--sell);
+  }
+  .opp-action-title {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+  }
+  .opp-action-detail {
+    font-size: 12px;
+    opacity: 0.85;
+    text-align: right;
+  }
+
+  .opp-body {
+    display: none;
+    padding: 20px;
+  }
+  .opp-card.expanded .opp-body { display: block; }
+
+  .opp-metrics-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .opp-metric {
+    background: var(--bg-2);
+    padding: 10px 14px;
+    border-radius: 3px;
+    border-left: 2px solid var(--border);
+  }
+  .opp-metric .lbl {
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .opp-metric .val {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 2px;
+  }
+  .opp-metric.target { border-left-color: var(--accent); }
+  .opp-metric.distance { border-left-color: var(--wait); }
+
+  .chart-container {
+    position: relative;
+    height: 280px;
+    margin-bottom: 14px;
+    background: #06090a;
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    padding: 12px;
+  }
+  .chart-rsi-container {
+    position: relative;
+    height: 110px;
+    background: #06090a;
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    padding: 12px;
+  }
+
+  .levels-list {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .levels-list strong { color: var(--text); }
+  .levels-list .level-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border-soft);
+  }
+  .levels-list .level-row:last-child { border-bottom: none; }
+  .levels-list .level-row .label { color: var(--text-dim); }
+  .levels-list .level-row .value { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="brand">
+    <h1>RADAR <span>SOBERANO</span></h1>
+    <div class="tagline">Motor Quantamental · Análisis Bursátil</div>
+    <div class="version" id="versionLabel">v—</div>
+  </div>
+  <div class="status-strip">
+    <div class="status-pill">
+      <span class="label">Cache SEC</span>
+      <span class="value" id="cacheStatus">—</span>
+    </div>
+    <div class="status-pill">
+      <span class="label">Treasury 10Y</span>
+      <span class="value" id="treasuryStatus">—</span>
+    </div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="scan">Escanear</button>
+  <button class="tab" data-tab="results">Resultados</button>
+  <button class="tab" data-tab="portfolio">Portfolio</button>
+  <button class="tab" data-tab="history">Histórico</button>
+  <button class="tab" data-tab="alerts">Alertas</button>
+  <button class="tab" data-tab="help">Ayuda</button>
+</div>
+
+<!-- ============ TAB: SCAN ============ -->
+<section id="tab-scan">
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Configuración del escaneo</h2>
+
+      <div class="field">
+        <label for="loteInput">Lote de exploración</label>
+        <input type="number" id="loteInput" value="60" min="0" max="500" />
+        <span class="hint">Empresas aleatorias del universo SEC a analizar (sumadas al portafolio foco fijo).</span>
+      </div>
+
+      <div class="field">
+        <label for="seedInput">Semilla (reproducibilidad)</label>
+        <input type="number" id="seedInput" placeholder="dejar vacío para aleatorio" />
+        <span class="hint">Si la fijás, podés repetir exactamente el mismo escaneo otro día.</span>
+      </div>
+
+      <div class="field">
+        <label for="sectorInput">Filtrar por sector(es)</label>
+        <input type="text" id="sectorInput" placeholder="Technology, Energy" />
+        <span class="hint">Coma-separado. Vacío = todos los sectores. El portafolio foco siempre se incluye.</span>
+      </div>
+
+      <label class="checkbox-row" style="margin-top:8px;">
+        <input type="checkbox" id="buffettCheck" />
+        <div class="desc">
+          <strong>Modo Buffett</strong>
+          <small>Activa filtros value: E/Y vs Treasury, P/B, P/FCF, edad mínima, ganancias positivas. Desactiva RSI como gatillo.</small>
+        </div>
+      </label>
+
+      <div class="buffett-config" id="buffettConfig">
+        <div class="grid-2">
+          <div class="field">
+            <label for="pbMaxInput">P/B máximo</label>
+            <input type="number" id="pbMaxInput" value="3.0" step="0.1" />
+          </div>
+          <div class="field">
+            <label for="pfcfMaxInput">P/FCF máximo</label>
+            <input type="number" id="pfcfMaxInput" value="20.0" step="0.5" />
+          </div>
+          <div class="field">
+            <label for="eyPremiumInput">E/Y premium sobre Treasury (pp)</label>
+            <input type="number" id="eyPremiumInput" value="0.0" step="0.5" />
+          </div>
+          <div class="field">
+            <label for="minHistInput">Edad mínima (años)</label>
+            <input type="number" id="minHistInput" value="10" min="1" />
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="runScanBtn">▶ Iniciar escaneo</button>
+        <button class="btn btn-ghost" id="cancelScanBtn" disabled>Resetear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Cache SEC</h2>
+      <div class="cache-row">
+        <div class="info">
+          <span class="lbl">Empresas en cache local</span>
+          <span class="val" id="cacheCount">—</span>
+        </div>
+        <div class="info">
+          <span class="lbl">Última actualización</span>
+          <span class="val" id="cacheDate">—</span>
+        </div>
+      </div>
+
+      <div class="alert" id="cacheAlert" style="display:none;"></div>
+
+      <div class="btn-row">
+        <button class="btn" id="refreshSecBtn">↻ Refrescar listado SEC</button>
+        <button class="btn btn-ghost" id="checkTreasuryBtn">$ Consultar Treasury 10Y</button>
+      </div>
+
+      <div class="help-section" style="margin-top:20px;">
+        <h3>¿Qué es la cache SEC?</h3>
+        <p>El motor descarga la lista oficial de las ~10.000 empresas que cotizan en EE.UU. desde el sitio de la SEC y la guarda localmente. Mientras la cache esté actualizada (menos de 30 días), el motor la usa sin consultar internet.</p>
+        <p>Si pasaron más de 30 días, la próxima corrida descarga la lista nueva automáticamente. También podés forzar el refresh con el botón.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>Bitácora en vivo</h2>
+    <div class="terminal" id="terminal">
+      <div class="empty">Iniciá un escaneo para ver los logs en vivo.</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ TAB: RESULTS ============ -->
+<section id="tab-results" class="hidden">
+  <div id="resultsEmpty" class="card">
+    <h2>Sin resultados aún</h2>
+    <p style="color:var(--text-dim); font-size:12px;">Corré un escaneo desde la pestaña Escanear para ver los resultados aquí.</p>
+  </div>
+
+  <div id="resultsContent" class="hidden">
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <div class="card">
+      <h2>🎯 Oportunidades de compra</h2>
+      <p style="color:var(--text-dim); font-size:12px; margin-bottom:14px;">
+        Empresas que pasaron los filtros, con análisis de precio óptimo de entrada. Hacé clic en cada tarjeta para ver el gráfico y los niveles.
+      </p>
+      <div id="opportunitiesContainer"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tabla completa</h2>
+      <div class="btn-row" style="margin-bottom:12px;">
+        <a class="btn" id="downloadCsvBtn" href="/api/csv" download>↓ Descargar CSV</a>
+      </div>
+      <div class="table-wrap">
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th>Activo</th>
+              <th>Sector</th>
+              <th>Veredicto</th>
+              <th>Acción</th>
+              <th>Cierre</th>
+              <th>Objetivo</th>
+              <th>Distancia</th>
+              <th>RSI</th>
+              <th>MA200</th>
+              <th>ROE%</th>
+              <th>D/C</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TAB: PORTFOLIO ============ -->
+<section id="tab-portfolio" class="hidden">
+  <div class="card">
+    <h2>📊 Mi portfolio</h2>
+    <p style="color:var(--text-dim); font-size:12px; margin-bottom:14px;">
+      Las posiciones que reportes acá serán evaluadas en cada escaneo. Si alguna gatilla una señal de venta (take profit, stop loss, sobrecompra, etc.) recibirás una alerta por los canales que tengas configurados.
+    </p>
+
+    <div class="btn-row" style="margin-bottom:20px;">
+      <button class="btn btn-primary" id="addPositionBtn">+ Agregar posición</button>
+      <button class="btn" id="checkSignalsBtn">🔍 Evaluar ahora</button>
+    </div>
+
+    <div id="signalsAlertBox"></div>
+    <div id="positionsContainer">
+      <p style="color:var(--text-faint); text-align:center; padding:32px; font-style:italic;">
+        Cargando posiciones...
+      </p>
+    </div>
+  </div>
+
+  <!-- Modal: agregar posición -->
+  <div id="addPositionModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div class="card" style="max-width:520px;width:100%;margin:0;">
+      <h2>Agregar posición</h2>
+      <p style="color:var(--text-dim); font-size:12px; margin-bottom:14px;" id="addPosHelpText">
+        Reportá una compra que hayas realizado. El motor empezará a evaluarla en cada scan.
+      </p>
+
+      <div class="field">
+        <label>Ticker</label>
+        <input type="text" id="posTickerInput" placeholder="NVDA" style="text-transform:uppercase;" />
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Precio de compra</label>
+          <input type="number" id="posPriceInput" step="0.01" placeholder="200.00" />
+        </div>
+        <div class="field">
+          <label>Cantidad (acciones)</label>
+          <input type="number" id="posQtyInput" step="0.01" value="1" />
+        </div>
+        <div class="field">
+          <label>Fecha de compra</label>
+          <input type="text" id="posDateInput" placeholder="YYYY-MM-DD (vacío = hoy)" />
+        </div>
+        <div class="field">
+          <label>Take profit %</label>
+          <input type="number" id="posTpInput" step="0.5" value="15" />
+        </div>
+        <div class="field">
+          <label>Stop loss %</label>
+          <input type="number" id="posSlInput" step="0.5" value="8" />
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="savePositionBtn">Guardar</button>
+        <button class="btn btn-ghost" id="cancelPositionBtn">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: cerrar posición -->
+  <div id="closePositionModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div class="card" style="max-width:480px;width:100%;margin:0;">
+      <h2>Cerrar posición</h2>
+      <p style="color:var(--text-dim); font-size:12px; margin-bottom:14px;" id="closePosHelpText">
+        Indicá a qué precio vendiste para registrar el PnL realizado.
+      </p>
+      <div class="field">
+        <label>Precio de venta</label>
+        <input type="number" id="closePriceInput" step="0.01" />
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="confirmCloseBtn">Cerrar posición</button>
+        <button class="btn btn-ghost" id="cancelCloseBtn">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TAB: ALERTS ============ -->
+<section id="tab-alerts" class="hidden">
+  <div class="card">
+    <h2>🔔 Configurar alertas</h2>
+    <p style="color:var(--text-dim); font-size:12px; margin-bottom:14px;">
+      Las alertas se envían automáticamente al final de cada scan, solo si alguna posición abierta dispara una señal de venta. Configurá uno o ambos canales.
+    </p>
+
+    <div class="alert" id="alertsConfigStatus" style="display:none;"></div>
+
+    <div class="grid-2">
+      <!-- Email -->
+      <div>
+        <h3 style="font-family:'Fraunces',serif; color:var(--accent); margin-bottom:12px;">📧 Email (SMTP)</h3>
+        <div class="field">
+          <label>Servidor SMTP</label>
+          <input type="text" id="smtpHostInput" placeholder="smtp.gmail.com" />
+        </div>
+        <div class="field">
+          <label>Puerto</label>
+          <input type="number" id="smtpPortInput" value="587" />
+        </div>
+        <div class="field">
+          <label>Usuario / email remitente</label>
+          <input type="text" id="smtpUserInput" placeholder="tu@gmail.com" />
+        </div>
+        <div class="field">
+          <label>Contraseña (App Password en Gmail)</label>
+          <input type="password" id="smtpPasswordInput" placeholder="dejá vacío para no cambiar" />
+        </div>
+        <div class="field">
+          <label>Email destino</label>
+          <input type="text" id="smtpToInput" placeholder="igual al remitente si vacío" />
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="saveEmailBtn">Guardar</button>
+          <button class="btn" id="testEmailBtn">Probar email</button>
+        </div>
+      </div>
+
+      <!-- Telegram -->
+      <div>
+        <h3 style="font-family:'Fraunces',serif; color:var(--accent); margin-bottom:12px;">📱 Telegram</h3>
+        <div class="help-section" style="margin-bottom:14px;">
+          <h3 style="font-size:12px; margin-bottom:6px;">Cómo configurar</h3>
+          <p>1. Abrí Telegram y buscá <code>@BotFather</code></p>
+          <p>2. Mandá <code>/newbot</code>, elegí un nombre y obtené el token.</p>
+          <p>3. Buscá tu bot y mandale <code>/start</code>.</p>
+          <p>4. Para obtener tu chat ID, abrí esta URL en el navegador (reemplazá TOKEN): <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code></p>
+          <p>5. Buscá <code>"chat":{"id":XXXXX</code> y copiá ese número.</p>
+        </div>
+        <div class="field">
+          <label>Bot token</label>
+          <input type="password" id="tgTokenInput" placeholder="dejá vacío para no cambiar" />
+        </div>
+        <div class="field">
+          <label>Chat ID</label>
+          <input type="text" id="tgChatIdInput" placeholder="123456789" />
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="saveTelegramBtn">Guardar</button>
+          <button class="btn" id="testTelegramBtn">Probar Telegram</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TAB: HISTORY ============ -->
+<section id="tab-history" class="hidden">
+  <div class="card">
+    <h2>Histórico de un ticker</h2>
+    <p style="color:var(--text-dim); font-size:12px; margin-bottom:14px;">
+      Consulta la evolución de un activo en la base de datos local. Se llena con cada escaneo.
+    </p>
+    <div class="ticker-search">
+      <input type="text" id="histInput" placeholder="NVDA, TTWO, AAPL..." style="text-transform:uppercase;" />
+      <button class="btn btn-primary" id="histBtn">Consultar</button>
+    </div>
+
+    <div id="histResult"></div>
+  </div>
+</section>
+
+<!-- ============ TAB: HELP ============ -->
+<section id="tab-help" class="hidden">
+  <div class="card">
+    <h2>¿Cómo funciona Radar Soberano?</h2>
+    <div class="help-section">
+      <h3>El concepto</h3>
+      <p>Radar Soberano escanea el universo de empresas registradas en la SEC (~10.000) aplicando filtros objetivos. Te dice qué activos cumplen tus reglas hoy. <strong>No compra ni vende nada</strong> — sos vos quien decide.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Modo clásico (default) — filtros por sector</h3>
+      <p>Cada sector tiene umbrales calibrados según los benchmarks de su industria. Un banco no se evalúa con las mismas reglas que una empresa de software.</p>
+      <div id="sectorRulesTable" style="margin-top:12px;"></div>
+      <p style="margin-top:10px;"><strong>Filtro técnico (igual para todos):</strong> calcula la media móvil de 200 días (tendencia) y el RSI Wilder de 14 días.</p>
+      <p><strong>Veredictos:</strong></p>
+      <p>· <span class="verdict buy">🟢 COMPRA ESTRATÉGICA</span> — tendencia alcista + RSI &lt; 35</p>
+      <p>· <span class="verdict sell">🔴 SOBRECOMPRA</span> — RSI &gt; 75</p>
+      <p>· <span class="verdict wait">⏳ ESPERAR</span> — todo lo demás</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Modo Buffett (opcional)</h3>
+      <p>Activa filtros adicionales tipo value-investing. La valuación pesa más que el timing técnico.</p>
+      <p>· <strong>E/Y &gt; Treasury 10Y</strong>: las ganancias deben rendir más que el bono libre de riesgo.</p>
+      <p>· <strong>P/B ≤ 3.0</strong>: no pagar de más sobre el valor contable.</p>
+      <p>· <strong>P/FCF ≤ 20</strong>: el flujo de caja libre debe justificar la valuación.</p>
+      <p>· <strong>Edad ≥ 10 años</strong>: solo negocios con historia probada.</p>
+      <p>· <strong>4 años de utilidades positivas</strong>: descarta empresas en pérdidas.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Glosario rápido</h3>
+      <p><strong>ROE</strong> · Return on Equity. Cuánto gana la empresa por cada $ de capital propio.</p>
+      <p><strong>RSI</strong> · Relative Strength Index (0-100). &lt;30 sobrevendido, &gt;70 sobrecomprado.</p>
+      <p><strong>MA200</strong> · Media móvil de 200 días. Sobre ella = tendencia alcista.</p>
+      <p><strong>P/E</strong> · Precio sobre ganancias. Cuánto pagás por cada $ de utilidad anual.</p>
+      <p><strong>P/B</strong> · Precio sobre valor contable.</p>
+      <p><strong>P/FCF</strong> · Precio sobre flujo de caja libre.</p>
+      <p><strong>E/Y</strong> · Earnings Yield = 1 / P/E. Rendimiento implícito de las ganancias.</p>
+      <p><strong>Treasury 10Y</strong> · Bono del Tesoro de EE.UU. a 10 años. Tasa "libre de riesgo" de referencia.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Aviso legal</h3>
+      <p>Esta herramienta es de análisis cuantitativo educativo. <strong>No constituye asesoría financiera.</strong> Los datos provienen de la SEC y Yahoo Finance, que pueden contener errores o retrasos. Las decisiones de inversión son responsabilidad exclusiva del usuario.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+// Registrar plugin de Chart.js (annotation)
+if (window.Chart && window['chartjs-plugin-annotation']) {
+  Chart.register(window['chartjs-plugin-annotation']);
+}
+
+// =====================================================
+// State
+// =====================================================
+let currentJobId = null;
+let currentWs = null;
+let lastSnapshots = [];
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// =====================================================
+// Tabs
+// =====================================================
+$$('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    $$('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const tabName = tab.dataset.tab;
+    ['scan', 'results', 'portfolio', 'history', 'alerts', 'help'].forEach(t => {
+      $('#tab-' + t).classList.toggle('hidden', t !== tabName);
+    });
+  });
+});
+
+// =====================================================
+// Buffett toggle
+// =====================================================
+$('#buffettCheck').addEventListener('change', (e) => {
+  $('#buffettConfig').classList.toggle('active', e.target.checked);
+});
+
+// =====================================================
+// Status / Cache
+// =====================================================
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const data = await r.json();
+    $('#versionLabel').textContent = 'v' + data.version;
+    $('#cacheCount').textContent = data.cache_size > 0
+      ? data.cache_size.toLocaleString() + ' empresas'
+      : 'Vacía';
+    $('#cacheDate').textContent = data.cache_updated || 'Nunca';
+    const ok = data.cache_size > 1000;
+    $('#cacheStatus').textContent = ok
+      ? data.cache_size.toLocaleString()
+      : 'Vacía';
+    $('#cacheStatus').className = 'value ' + (ok ? 'ok' : 'warn');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+$('#refreshSecBtn').addEventListener('click', async () => {
+  const btn = $('#refreshSecBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Descargando...';
+  showCacheAlert('info', 'Descargando registro SEC...');
+  try {
+    const r = await fetch('/api/refresh-sec-now', { method: 'POST' });
+    const data = await r.json();
+    if (data.ok) {
+      showCacheAlert('success',
+        `Cache actualizada: ${data.cache_size.toLocaleString()} empresas el ${data.cache_updated}.`);
+      await refreshStatus();
+    } else {
+      showCacheAlert('error', 'Error al refrescar.');
+    }
+  } catch (e) {
+    showCacheAlert('error', 'Error de red: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '↻ Refrescar listado SEC';
+  }
+});
+
+$('#checkTreasuryBtn').addEventListener('click', async () => {
+  const btn = $('#checkTreasuryBtn');
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> Consultando...';
+  try {
+    const r = await fetch('/api/treasury');
+    const data = await r.json();
+    $('#treasuryStatus').textContent = data.as_percent.toFixed(2) + '%';
+  } catch (e) {
+    $('#treasuryStatus').textContent = 'Error';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+function showCacheAlert(type, msg) {
+  const el = $('#cacheAlert');
+  el.style.display = 'block';
+  el.className = 'alert ' + (type === 'success' ? 'success' : type === 'error' ? 'error' : '');
+  el.textContent = msg;
+  setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+// =====================================================
+// Scan
+// =====================================================
+$('#runScanBtn').addEventListener('click', async () => {
+  const btn = $('#runScanBtn');
+  if (btn.disabled) return;
+
+  const params = {
+    lote: parseInt($('#loteInput').value, 10) || 60,
+    seed: $('#seedInput').value ? parseInt($('#seedInput').value, 10) : null,
+    sector: $('#sectorInput').value.trim() || null,
+    buffett: $('#buffettCheck').checked,
+    pb_max: parseFloat($('#pbMaxInput').value) || 3.0,
+    pfcf_max: parseFloat($('#pfcfMaxInput').value) || 20.0,
+    ey_premium: parseFloat($('#eyPremiumInput').value) || 0.0,
+    min_history: parseInt($('#minHistInput').value, 10) || 10,
+  };
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Iniciando...';
+  $('#cancelScanBtn').disabled = false;
+
+  // Limpiar terminal
+  $('#terminal').innerHTML = '';
+
+  try {
+    const r = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const data = await r.json();
+    currentJobId = data.job_id;
+    appendLog(`▶ Escaneo iniciado · job ${currentJobId}`, 'info');
+    btn.innerHTML = '<span class="spinner"></span> Escaneando...';
+
+    openLogStream(currentJobId);
+    pollJob(currentJobId);
+  } catch (e) {
+    appendLog('Error al iniciar: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '▶ Iniciar escaneo';
+    $('#cancelScanBtn').disabled = true;
+  }
+});
+
+$('#cancelScanBtn').addEventListener('click', () => {
+  // Reset visual (el backend sigue corriendo pero la UI lo ignora)
+  if (currentWs) currentWs.close();
+  currentJobId = null;
+  $('#runScanBtn').disabled = false;
+  $('#runScanBtn').innerHTML = '▶ Iniciar escaneo';
+  $('#cancelScanBtn').disabled = true;
+});
+
+function openLogStream(jobId) {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/ws/logs/${jobId}`);
+  currentWs = ws;
+  ws.onmessage = (ev) => {
+    try {
+      const data = JSON.parse(ev.data);
+      if (data.type === 'log') {
+        const level = data.message.includes('[ERROR]') ? 'error'
+                    : data.message.includes('[WARNING]') ? 'warning'
+                    : 'info';
+        appendLog(data.message, level);
+      } else if (data.type === 'done') {
+        appendLog('— fin de logs —', 'info');
+      }
+    } catch (e) {}
+  };
+  ws.onerror = () => appendLog('WebSocket error', 'error');
+}
+
+function appendLog(msg, level = 'info') {
+  const term = $('#terminal');
+  const empty = term.querySelector('.empty');
+  if (empty) empty.remove();
+  const line = document.createElement('div');
+  line.className = 'log-line ' + level;
+  line.textContent = msg;
+  term.appendChild(line);
+  term.scrollTop = term.scrollHeight;
+}
+
+async function pollJob(jobId) {
+  const r = await fetch('/api/scan/' + jobId);
+  const data = await r.json();
+  if (data.status === 'done') {
+    onScanFinished(data);
+  } else if (data.status === 'error') {
+    appendLog('✗ Error: ' + (data.error || 'desconocido'), 'error');
+    onScanReset();
+  } else {
+    setTimeout(() => pollJob(jobId), 2000);
+  }
+}
+
+function onScanReset() {
+  $('#runScanBtn').disabled = false;
+  $('#runScanBtn').innerHTML = '▶ Iniciar escaneo';
+  $('#cancelScanBtn').disabled = true;
+}
+
+function onScanFinished(data) {
+  appendLog(`✓ Escaneo completo: ${data.snapshots.length} resultado(s)`, 'info');
+  lastSnapshots = data.snapshots;
+  renderResults(data);
+  onScanReset();
+  refreshStatus();
+
+  // Modal "compraste alguno?" si hay oportunidades actionables
+  setTimeout(() => showPostScanModal(data.snapshots), 800);
+}
+
+// =====================================================
+// Results
+// =====================================================
+
+const RECOMMENDATION_LABELS = {
+  COMPRAR_AHORA: { label: '🟢 COMPRAR AHORA', cls: 'buy-now' },
+  CERCA: { label: '🟡 MUY CERCA', cls: 'cerca' },
+  ESPERAR: { label: '⏳ ESPERAR', cls: 'esperar' },
+  CARO: { label: '🔴 PRECIO ALTO', cls: 'caro' },
+};
+
+let activeCharts = [];
+
+function renderResults(data) {
+  const empty = $('#resultsEmpty');
+  const content = $('#resultsContent');
+  if (data.snapshots.length === 0) {
+    empty.classList.remove('hidden');
+    content.classList.add('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  content.classList.remove('hidden');
+
+  // ----- Stats tiles -----
+  const s = data.stats;
+  const tiles = [
+    { label: 'Total', value: s.total, cls: '' },
+    { label: 'Pasaron', value: s.passed, cls: 'accent' },
+    { label: 'Tiempo (s)', value: s.elapsed_seconds, cls: '' },
+  ];
+  if (s.treasury_yield != null) {
+    tiles.push({
+      label: 'Treasury 10Y',
+      value: (s.treasury_yield * 100).toFixed(2) + '%',
+      cls: 'warn',
+    });
+  }
+  // Conteo por recomendación
+  const recCounts = { COMPRAR_AHORA: 0, CERCA: 0, ESPERAR: 0, CARO: 0 };
+  data.snapshots.forEach(sn => {
+    if (sn.targets) recCounts[sn.targets.recommendation] = (recCounts[sn.targets.recommendation] || 0) + 1;
+  });
+  if (recCounts.COMPRAR_AHORA) tiles.push({ label: 'Comprar ahora', value: recCounts.COMPRAR_AHORA, cls: 'buy' });
+  if (recCounts.CERCA) tiles.push({ label: 'Muy cerca', value: recCounts.CERCA, cls: 'warn' });
+  if (recCounts.ESPERAR) tiles.push({ label: 'Esperar', value: recCounts.ESPERAR, cls: '' });
+  if (recCounts.CARO) tiles.push({ label: 'Caro', value: recCounts.CARO, cls: 'sell' });
+
+  $('#statsGrid').innerHTML = tiles.map(t => `
+    <div class="stat-tile ${t.cls}">
+      <div class="label">${escapeHtml(t.label)}</div>
+      <div class="value">${escapeHtml(String(t.value))}</div>
+    </div>
+  `).join('');
+
+  // ----- Opportunity cards (con chart) -----
+  // Destruir charts viejos
+  activeCharts.forEach(c => { try { c.destroy(); } catch (e) {} });
+  activeCharts = [];
+
+  // Ordenar: COMPRAR_AHORA → CERCA → ESPERAR → CARO → sin target
+  const recOrder = { COMPRAR_AHORA: 0, CERCA: 1, ESPERAR: 2, CARO: 3 };
+  const sorted = [...data.snapshots].sort((a, b) => {
+    const ra = a.targets ? recOrder[a.targets.recommendation] ?? 4 : 5;
+    const rb = b.targets ? recOrder[b.targets.recommendation] ?? 4 : 5;
+    return ra - rb;
+  });
+
+  const container = $('#opportunitiesContainer');
+  container.innerHTML = sorted.map((sn, idx) => renderOpportunityCard(sn, idx)).join('');
+
+  // Hook clicks para expandir/colapsar y dibujar chart on-demand
+  $$('.opp-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const card = header.parentElement;
+      const wasExpanded = card.classList.contains('expanded');
+      card.classList.toggle('expanded');
+      if (!wasExpanded) {
+        const idx = parseInt(card.dataset.idx, 10);
+        const sn = sorted[idx];
+        if (sn.history && sn.history.length > 0) {
+          drawChart(`chart-${idx}`, `chart-rsi-${idx}`, sn);
+        }
+      }
+    });
+  });
+
+  // Auto-expandir las primeras 2 oportunidades buenas
+  $$('.opp-card').forEach((card, i) => {
+    if (i < 2) {
+      card.classList.add('expanded');
+      const idx = parseInt(card.dataset.idx, 10);
+      const sn = sorted[idx];
+      if (sn.history && sn.history.length > 0) {
+        setTimeout(() => drawChart(`chart-${idx}`, `chart-rsi-${idx}`, sn), 50);
+      }
+    }
+  });
+
+  // ----- Tabla completa -----
+  const tbody = $('#resultsTable tbody');
+  tbody.innerHTML = sorted.map(s => {
+    const v = (s.VEREDICTO || '').split(' |')[0];
+    let vc = 'wait';
+    if (v.includes('COMPRA')) vc = 'buy';
+    else if (v.includes('SOBRECOMPRA')) vc = 'sell';
+    else if (v.includes('BUFFETT GRADE')) vc = 'buffett';
+    else if (v.includes('FOCO')) vc = 'foco';
+
+    const t = s.targets;
+    const action = t ? RECOMMENDATION_LABELS[t.recommendation]?.label || '—' : '—';
+    const target = t ? '$' + t.suggested_buy_price.toFixed(2) : '—';
+    const dist = t ? (t.distance_pct >= 0 ? '-' : '+') + Math.abs(t.distance_pct).toFixed(1) + '%' : '—';
+
+    return `
+      <tr>
+        <td class="ticker">${escapeHtml(s.Activo)}</td>
+        <td>${escapeHtml(s.Sector || '—')}</td>
+        <td><span class="verdict ${vc}">${escapeHtml(v)}</span></td>
+        <td style="font-size:11px;">${escapeHtml(action)}</td>
+        <td class="numeric">$${s.Cierre ?? '—'}</td>
+        <td class="numeric" style="color:var(--accent);">${target}</td>
+        <td class="numeric">${dist}</td>
+        <td class="numeric">${s.RSI ?? '—'}</td>
+        <td class="numeric">${s.MA200 ?? '—'}</td>
+        <td class="numeric">${s['ROE%'] ?? '—'}</td>
+        <td class="numeric">${s['D/C'] ?? '—'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Activar tab Resultados
+  $$('.tab').forEach(t => t.classList.remove('active'));
+  $$('.tab').forEach(t => {
+    if (t.dataset.tab === 'results') t.classList.add('active');
+  });
+  ['scan', 'results', 'portfolio', 'history', 'alerts', 'help'].forEach(t => {
+    $('#tab-' + t).classList.toggle('hidden', t !== 'results');
+  });
+}
+
+function renderOpportunityCard(sn, idx) {
+  const t = sn.targets;
+  if (!t) {
+    return `
+      <div class="opp-card" data-idx="${idx}">
+        <div class="opp-header">
+          <div class="opp-header-left">
+            <span class="opp-ticker-big">${escapeHtml(sn.Activo)}</span>
+            <span class="opp-name">${escapeHtml(sn.Sector || '—')}</span>
+          </div>
+          <span class="opp-toggle">▾</span>
+        </div>
+        <div class="opp-action-banner esperar">
+          <div>
+            <div class="opp-action-title">Sin análisis de precio</div>
+            <div class="opp-action-detail">Datos insuficientes</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  const recInfo = RECOMMENDATION_LABELS[t.recommendation] || RECOMMENDATION_LABELS.ESPERAR;
+  const distSign = t.distance_pct >= 0 ? '-' : '+';
+  const distAbs = Math.abs(t.distance_pct).toFixed(1);
+
+  // Soportes
+  const supportsHtml = t.supports.length === 0
+    ? '<em>Sin soportes claros detectados</em>'
+    : t.supports.slice(0, 3).map(s => `$${s.toFixed(2)}`).join(', ');
+
+  // Fibonacci
+  const fibHtml = Object.entries(t.fibonacci_levels)
+    .map(([k, v]) => `${k}: $${v.toFixed(2)}`).join(' · ');
+
+  // Earnings warning
+  let earningsBanner = '';
+  if (sn.earnings && sn.earnings.warning_text) {
+    earningsBanner = `
+      <div class="opp-action-banner cerca" style="margin-top:0;">
+        <div>
+          <div class="opp-action-title">📅 ${escapeHtml(sn.earnings.warning_text)}</div>
+          <div style="font-size:11px; opacity:0.9; margin-top:2px;">
+            Próximo reporte: ${escapeHtml(sn.earnings.next_date)}
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (sn.earnings && sn.earnings.next_date) {
+    earningsBanner = `
+      <div style="padding:10px 20px; background:var(--bg-2); border-bottom:1px solid var(--border); font-size:11px; color:var(--text-dim);">
+        📅 Próximo reporte: <span style="color:var(--text);">${escapeHtml(sn.earnings.next_date)}</span>
+        ${sn.earnings.days_until !== null ? `<span style="color:var(--text-faint);"> · en ${sn.earnings.days_until} día(s)</span>` : ''}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="opp-card" data-idx="${idx}">
+      <div class="opp-header">
+        <div class="opp-header-left">
+          <span class="opp-ticker-big">${escapeHtml(sn.Activo)}</span>
+          <span class="opp-name">${escapeHtml(sn.Sector || '—')} · ${escapeHtml(sn.VEREDICTO.split(' |')[0])}</span>
+        </div>
+        <span class="opp-toggle">▾</span>
+      </div>
+
+      <div class="opp-action-banner ${recInfo.cls}">
+        <div>
+          <div class="opp-action-title">${recInfo.label}</div>
+          <div style="font-size:12px; opacity:0.9; margin-top:2px;">${escapeHtml(t.recommendation_reason)}</div>
+        </div>
+        <div class="opp-action-detail">
+          <div style="font-size:18px; font-family:'Fraunces',serif;">$${t.suggested_buy_price.toFixed(2)}</div>
+          <div style="font-size:11px;">objetivo · ${distSign}${distAbs}%</div>
+        </div>
+      </div>
+
+      ${earningsBanner}
+
+      <div class="opp-body">
+        <div class="opp-metrics-row">
+          <div class="opp-metric">
+            <div class="lbl">Precio actual</div>
+            <div class="val">$${t.current_price.toFixed(2)}</div>
+          </div>
+          <div class="opp-metric target">
+            <div class="lbl">Comprar a</div>
+            <div class="val">$${t.suggested_buy_price.toFixed(2)}</div>
+          </div>
+          <div class="opp-metric distance">
+            <div class="lbl">Distancia</div>
+            <div class="val">${distSign}${distAbs}%</div>
+          </div>
+          <div class="opp-metric">
+            <div class="lbl">Máx 52sem</div>
+            <div class="val">$${t.high_52w.toFixed(2)}</div>
+          </div>
+          <div class="opp-metric">
+            <div class="lbl">Mín 52sem</div>
+            <div class="val">$${t.low_52w.toFixed(2)}</div>
+          </div>
+          <div class="opp-metric">
+            <div class="lbl">Bajo del máx</div>
+            <div class="val">${t.pct_from_high.toFixed(1)}%</div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <canvas id="chart-${idx}"></canvas>
+        </div>
+        <div class="chart-rsi-container">
+          <canvas id="chart-rsi-${idx}"></canvas>
+        </div>
+
+        <div class="levels-list">
+          <div class="level-row">
+            <span class="label">Método usado para el objetivo</span>
+            <span class="value">${escapeHtml(t.method_used)}</span>
+          </div>
+          <div class="level-row">
+            <span class="label">Soportes técnicos detectados</span>
+            <span class="value">${supportsHtml}</span>
+          </div>
+          <div class="level-row">
+            <span class="label">Fibonacci (sobre rango anual)</span>
+            <span class="value">${fibHtml}</span>
+          </div>
+          ${t.rsi_implied_price !== null ? `
+          <div class="level-row">
+            <span class="label">RSI implícito (precio para RSI=35)</span>
+            <span class="value">$${t.rsi_implied_price.toFixed(2)}</span>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function drawChart(priceCanvasId, rsiCanvasId, sn) {
+  const data = sn.history;
+  const t = sn.targets;
+  if (!data || data.length === 0) return;
+
+  const labels = data.map(d => d.date);
+  const closes = data.map(d => d.close);
+  const ma200 = data.map(d => d.ma200);
+  const rsis = data.map(d => d.rsi);
+
+  // Color según recomendación
+  const recColor = {
+    COMPRAR_AHORA: '#00d97e',
+    CERCA: '#f0b400',
+    ESPERAR: '#5fa8ff',
+    CARO: '#ff5757',
+  }[t.recommendation] || '#5fa8ff';
+
+  // Anotaciones: línea horizontal del precio objetivo
+  const annotations = {
+    targetLine: {
+      type: 'line',
+      yMin: t.suggested_buy_price,
+      yMax: t.suggested_buy_price,
+      borderColor: '#c4f000',
+      borderWidth: 2,
+      borderDash: [6, 4],
+      label: {
+        display: true,
+        content: `Comprar: $${t.suggested_buy_price.toFixed(2)}`,
+        position: 'start',
+        backgroundColor: '#c4f000',
+        color: '#0a0e0d',
+        font: { family: 'JetBrains Mono', size: 10, weight: '700' },
+        padding: 4,
+      },
+    },
+  };
+
+  // Soportes adicionales como líneas tenues
+  t.supports.slice(0, 3).forEach((s, i) => {
+    if (Math.abs(s - t.suggested_buy_price) < 0.01) return;
+    annotations[`support_${i}`] = {
+      type: 'line',
+      yMin: s,
+      yMax: s,
+      borderColor: 'rgba(122, 136, 150, 0.4)',
+      borderWidth: 1,
+      borderDash: [3, 3],
+    };
+  });
+
+  // ----- Chart de precio -----
+  const ctx = document.getElementById(priceCanvasId);
+  if (!ctx) return;
+  const priceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Cierre',
+          data: closes,
+          borderColor: recColor,
+          backgroundColor: recColor + '15',
+          borderWidth: 2,
+          fill: true,
+          pointRadius: 0,
+          tension: 0.1,
+        },
+        {
+          label: 'MA200',
+          data: ma200,
+          borderColor: '#7a8896',
+          borderWidth: 1.5,
+          borderDash: [4, 4],
+          fill: false,
+          pointRadius: 0,
+          tension: 0.2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#a8c0d4',
+            font: { family: 'JetBrains Mono', size: 11 },
+          },
+        },
+        tooltip: {
+          backgroundColor: '#11171a',
+          titleColor: '#c4f000',
+          bodyColor: '#d8e0e8',
+          borderColor: '#2a3540',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: $${ctx.parsed.y?.toFixed(2)}`,
+          },
+        },
+        annotation: { annotations },
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#7a8896',
+            font: { family: 'JetBrains Mono', size: 10 },
+            maxTicksLimit: 6,
+          },
+          grid: { color: 'rgba(42, 53, 64, 0.3)' },
+        },
+        y: {
+          ticks: {
+            color: '#7a8896',
+            font: { family: 'JetBrains Mono', size: 10 },
+            callback: (v) => '$' + v.toFixed(0),
+          },
+          grid: { color: 'rgba(42, 53, 64, 0.3)' },
+        },
+      },
+    },
+  });
+  activeCharts.push(priceChart);
+
+  // ----- Chart de RSI -----
+  const rsiCtx = document.getElementById(rsiCanvasId);
+  if (!rsiCtx) return;
+  const rsiChart = new Chart(rsiCtx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'RSI',
+        data: rsis,
+        borderColor: '#5fa8ff',
+        backgroundColor: 'rgba(95, 168, 255, 0.1)',
+        borderWidth: 1.5,
+        fill: true,
+        pointRadius: 0,
+        tension: 0.1,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#11171a',
+          titleColor: '#c4f000',
+          bodyColor: '#d8e0e8',
+          callbacks: {
+            label: (ctx) => `RSI: ${ctx.parsed.y?.toFixed(1)}`,
+          },
+        },
+        annotation: {
+          annotations: {
+            overbought: {
+              type: 'line', yMin: 70, yMax: 70,
+              borderColor: 'rgba(255, 87, 87, 0.5)',
+              borderWidth: 1, borderDash: [3, 3],
+            },
+            oversold: {
+              type: 'line', yMin: 35, yMax: 35,
+              borderColor: 'rgba(0, 217, 126, 0.5)',
+              borderWidth: 1, borderDash: [3, 3],
+            },
+          },
+        },
+      },
+      scales: {
+        x: { display: false },
+        y: {
+          min: 0, max: 100,
+          ticks: {
+            color: '#7a8896',
+            font: { family: 'JetBrains Mono', size: 9 },
+            stepSize: 25,
+          },
+          grid: { color: 'rgba(42, 53, 64, 0.3)' },
+        },
+      },
+    },
+  });
+  activeCharts.push(rsiChart);
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// =====================================================
+// History
+// =====================================================
+$('#histBtn').addEventListener('click', loadHistory);
+$('#histInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loadHistory();
+});
+
+async function loadHistory() {
+  const ticker = $('#histInput').value.trim().toUpperCase();
+  if (!ticker) return;
+  const out = $('#histResult');
+  out.innerHTML = '<div class="alert">Cargando...</div>';
+  try {
+    const r = await fetch('/api/history/' + encodeURIComponent(ticker));
+    const data = await r.json();
+    if (data.count === 0) {
+      out.innerHTML = `<div class="alert">Sin historial para <strong>${escapeHtml(ticker)}</strong>. Ejecutá un escaneo que lo incluya primero.</div>`;
+      return;
+    }
+    out.innerHTML = `
+      <h3 style="margin:16px 0 8px; color:var(--accent); font-family:'Fraunces',serif;">${escapeHtml(ticker)} — ${data.count} registro(s)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Cierre</th><th>RSI</th><th>MA200</th>
+              <th>Veredicto</th><th>PE</th><th>PB</th><th>PFCF</th><th>Sector</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.records.map(r => {
+              const v = (r.veredicto || '').split(' |')[0];
+              let vc = 'wait';
+              if (v.includes('COMPRA')) vc = 'buy';
+              else if (v.includes('SOBRECOMPRA')) vc = 'sell';
+              else if (v.includes('BUFFETT GRADE')) vc = 'buffett';
+              else if (v.includes('FOCO')) vc = 'foco';
+              return `
+                <tr>
+                  <td>${escapeHtml(r.fecha)}</td>
+                  <td class="numeric">${r.cierre?.toFixed(2) ?? '—'}</td>
+                  <td class="numeric">${r.rsi?.toFixed(1) ?? '—'}</td>
+                  <td class="numeric">${r.ma200?.toFixed(2) ?? '—'}</td>
+                  <td><span class="verdict ${vc}">${escapeHtml(v)}</span></td>
+                  <td class="numeric">${r.pe?.toFixed(1) ?? '—'}</td>
+                  <td class="numeric">${r.pb?.toFixed(2) ?? '—'}</td>
+                  <td class="numeric">${r.pfcf?.toFixed(1) ?? '—'}</td>
+                  <td style="color:var(--text-dim);">${escapeHtml(r.sector || '—')}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    out.innerHTML = `<div class="alert error">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// =====================================================
+// Sector rules (en pestaña Ayuda)
+// =====================================================
+async function loadSectorRules() {
+  try {
+    const r = await fetch('/api/sector-rules');
+    const data = await r.json();
+    const tableEl = $('#sectorRulesTable');
+    if (!tableEl) return;
+
+    const rows = Object.entries(data.rules)
+      .filter(([k]) => !k.startsWith('_'))
+      .map(([sector, t]) => `
+        <tr>
+          <td style="font-weight:500; color:var(--accent);">${escapeHtml(sector)}</td>
+          <td class="numeric">${t.roe_min.toFixed(1)}%</td>
+          <td class="numeric">${t.deuda_max === null ? '—' : t.deuda_max.toFixed(1)}</td>
+          <td class="numeric">${t.margen_min === null ? '—' : t.margen_min.toFixed(0) + '%'}</td>
+          <td style="color:var(--text-dim); font-size:11px;">${escapeHtml(t.descripcion)}</td>
+        </tr>
+      `).join('');
+
+    tableEl.innerHTML = `
+      <div class="table-wrap" style="margin-top:8px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Sector</th>
+              <th>ROE mín</th>
+              <th>D/C máx</th>
+              <th>Margen mín</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p style="font-size:11px; color:var(--text-faint); margin-top:8px;">
+        "—" significa que la métrica no se evalúa para ese sector (p.ej. bancos no se miden por D/C porque la deuda es su modelo de negocio).
+      </p>
+    `;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// =====================================================
+// Portfolio
+// =====================================================
+
+let pendingClosePositionId = null;
+
+async function refreshPositions() {
+  const container = $('#positionsContainer');
+  try {
+    const r = await fetch('/api/positions');
+    const data = await r.json();
+    if (data.positions.length === 0) {
+      container.innerHTML = `
+        <p style="color:var(--text-faint); text-align:center; padding:32px; font-style:italic;">
+          Sin posiciones registradas todavía. Hacé clic en "+ Agregar posición" para empezar.
+        </p>`;
+      return;
+    }
+
+    const abiertas = data.positions.filter(p => p.estado === 'abierta');
+    const cerradas = data.positions.filter(p => p.estado === 'cerrada');
+
+    let html = '';
+    if (abiertas.length > 0) {
+      html += '<h3 style="font-family:\'Fraunces\',serif;color:var(--accent);margin-bottom:10px;">Abiertas</h3>';
+      html += '<div class="table-wrap" style="margin-bottom:24px;"><table><thead><tr>' +
+        '<th>Ticker</th><th>Compra</th><th>Precio</th><th>Cantidad</th>' +
+        '<th>TP%</th><th>SL%</th><th></th></tr></thead><tbody>' +
+        abiertas.map(p => `
+          <tr>
+            <td class="ticker">${escapeHtml(p.ticker)}</td>
+            <td>${escapeHtml(p.fecha_compra)}</td>
+            <td class="numeric">$${p.precio_compra.toFixed(2)}</td>
+            <td class="numeric">${p.cantidad}</td>
+            <td class="numeric" style="color:var(--buy);">+${p.target_venta_pct}%</td>
+            <td class="numeric" style="color:var(--sell);">-${p.stop_loss_pct}%</td>
+            <td>
+              <button class="btn btn-ghost" onclick="openClosePositionModal(${p.id})" style="padding:4px 10px; font-size:10px;">Vender</button>
+              <button class="btn btn-ghost" onclick="deletePosition(${p.id})" style="padding:4px 10px; font-size:10px; color:var(--text-faint);">×</button>
+            </td>
+          </tr>
+        `).join('') + '</tbody></table></div>';
+    }
+
+    if (cerradas.length > 0) {
+      html += '<h3 style="font-family:\'Fraunces\',serif;color:var(--text-dim);margin-bottom:10px;">Cerradas</h3>';
+      html += '<div class="table-wrap"><table><thead><tr>' +
+        '<th>Ticker</th><th>Compra</th><th>Venta</th><th>$ compra</th>' +
+        '<th>$ venta</th><th>PnL</th></tr></thead><tbody>' +
+        cerradas.map(p => {
+          const pnl = p.pnl_realizado || 0;
+          const cls = pnl > 0 ? 'buy' : pnl < 0 ? 'sell' : 'wait';
+          return `
+            <tr>
+              <td class="ticker">${escapeHtml(p.ticker)}</td>
+              <td>${escapeHtml(p.fecha_compra)}</td>
+              <td>${escapeHtml(p.fecha_venta || '—')}</td>
+              <td class="numeric">$${p.precio_compra.toFixed(2)}</td>
+              <td class="numeric">$${p.precio_venta?.toFixed(2) ?? '—'}</td>
+              <td class="numeric"><span class="verdict ${cls}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</span></td>
+            </tr>
+          `;
+        }).join('') + '</tbody></table></div>';
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<div class="alert error">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function openAddPositionModal(prefillTicker = '', prefillPrice = '') {
+  $('#posTickerInput').value = prefillTicker;
+  $('#posPriceInput').value = prefillPrice;
+  $('#posQtyInput').value = '1';
+  $('#posDateInput').value = '';
+  $('#posTpInput').value = '15';
+  $('#posSlInput').value = '8';
+  $('#addPositionModal').classList.remove('hidden');
+}
+
+function closeAddPositionModal() {
+  $('#addPositionModal').classList.add('hidden');
+}
+
+window.openClosePositionModal = (id) => {
+  pendingClosePositionId = id;
+  $('#closePriceInput').value = '';
+  $('#closePositionModal').classList.remove('hidden');
+};
+
+function closeCloseModal() {
+  $('#closePositionModal').classList.add('hidden');
+  pendingClosePositionId = null;
+}
+
+window.deletePosition = async (id) => {
+  if (!confirm('¿Eliminar esta posición? (no afecta tu cuenta real, solo el registro acá)')) return;
+  await fetch(`/api/positions/${id}`, { method: 'DELETE' });
+  refreshPositions();
+};
+
+$('#addPositionBtn').addEventListener('click', () => openAddPositionModal());
+$('#cancelPositionBtn').addEventListener('click', closeAddPositionModal);
+$('#cancelCloseBtn').addEventListener('click', closeCloseModal);
+
+$('#savePositionBtn').addEventListener('click', async () => {
+  const payload = {
+    ticker: $('#posTickerInput').value.trim(),
+    precio_compra: parseFloat($('#posPriceInput').value),
+    cantidad: parseFloat($('#posQtyInput').value) || 1,
+    fecha_compra: $('#posDateInput').value.trim() || null,
+    target_venta_pct: parseFloat($('#posTpInput').value) || 15,
+    stop_loss_pct: parseFloat($('#posSlInput').value) || 8,
+  };
+  if (!payload.ticker || !payload.precio_compra) {
+    alert('Ticker y precio de compra son obligatorios.');
+    return;
+  }
+  try {
+    const r = await fetch('/api/positions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      alert('Error: ' + (err.detail || 'desconocido'));
+      return;
+    }
+    closeAddPositionModal();
+    refreshPositions();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+});
+
+$('#confirmCloseBtn').addEventListener('click', async () => {
+  if (!pendingClosePositionId) return;
+  const price = parseFloat($('#closePriceInput').value);
+  if (!price || price <= 0) {
+    alert('Precio inválido');
+    return;
+  }
+  try {
+    const r = await fetch(`/api/positions/${pendingClosePositionId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ precio_venta: price }),
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      alert('Error: ' + (err.detail || 'desconocido'));
+      return;
+    }
+    closeCloseModal();
+    refreshPositions();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+});
+
+$('#checkSignalsBtn').addEventListener('click', async () => {
+  const btn = $('#checkSignalsBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Evaluando...';
+  try {
+    const r = await fetch('/api/positions/check');
+    const data = await r.json();
+    const box = $('#signalsAlertBox');
+    if (data.count === 0) {
+      box.innerHTML = `<div class="alert success">✅ Ninguna posición tiene señal de venta en este momento.</div>`;
+    } else {
+      box.innerHTML = `
+        <div class="alert error" style="margin-bottom:16px;">
+          🚨 <strong>${data.count} señal(es) detectadas:</strong>
+        </div>` +
+        data.signals.map(s => {
+          const cls = s.severity === 'positive' ? 'buy-now' : s.severity === 'negative' ? 'caro' : 'cerca';
+          return `
+            <div class="opp-action-banner ${cls}" style="margin-bottom:8px;">
+              <div>
+                <div class="opp-action-title">${escapeHtml(s.position.ticker)}</div>
+                <div style="font-size:12px; opacity:0.9; margin-top:2px;">${escapeHtml(s.reason_text)}</div>
+              </div>
+              <div class="opp-action-detail">
+                <div style="font-size:18px; font-family:'Fraunces',serif;">${s.pnl_pct >= 0 ? '+' : ''}${s.pnl_pct.toFixed(1)}%</div>
+                <div style="font-size:11px;">${s.pnl_dollars >= 0 ? '+' : ''}$${s.pnl_dollars.toFixed(2)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+    }
+  } catch (e) {
+    $('#signalsAlertBox').innerHTML = `<div class="alert error">Error: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 Evaluar ahora';
+  }
+});
+
+// =====================================================
+// Modal "Compraste alguno?" tras cada scan exitoso
+// =====================================================
+function showPostScanModal(snapshots) {
+  // Solo mostrar si hay oportunidades con targets actionables (CERCA o COMPRAR_AHORA)
+  const buyable = snapshots.filter(s => s.targets &&
+    (s.targets.recommendation === 'COMPRAR_AHORA' || s.targets.recommendation === 'CERCA'));
+  if (buyable.length === 0) return;
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div class="card" style="max-width:560px;width:100%;margin:0;max-height:80vh;overflow-y:auto;">
+      <h2>¿Compraste alguna de estas oportunidades?</h2>
+      <p style="color:var(--text-dim); font-size:12px; margin-bottom:14px;">
+        Si ya compraste alguna, marcala para que el motor la siga y te avise cuándo vender. También podés ignorar y agregarla manualmente luego.
+      </p>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+        ${buyable.map(s => `
+          <label class="checkbox-row">
+            <input type="checkbox" data-ticker="${escapeHtml(s.Activo)}" data-price="${s.targets.current_price}" />
+            <div class="desc">
+              <strong>${escapeHtml(s.Activo)}</strong>
+              <small>$${s.targets.current_price.toFixed(2)} · ${s.targets.recommendation === 'COMPRAR_AHORA' ? '🟢 Comprar ahora' : '🟡 Cerca del objetivo'}</small>
+            </div>
+          </label>
+        `).join('')}
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="postScanContinueBtn">Continuar</button>
+        <button class="btn btn-ghost" id="postScanSkipBtn">No compré nada</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#postScanSkipBtn').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  modal.querySelector('#postScanContinueBtn').addEventListener('click', async () => {
+    const checks = modal.querySelectorAll('input[type="checkbox"]:checked');
+    if (checks.length === 0) {
+      modal.remove();
+      return;
+    }
+    // Pedir precios uno por uno (simple confirm con valor sugerido)
+    for (const cb of checks) {
+      const ticker = cb.dataset.ticker;
+      const suggested = parseFloat(cb.dataset.price);
+      const priceStr = prompt(
+        `${ticker}: ¿a qué precio compraste? (sugerido: $${suggested.toFixed(2)})`,
+        suggested.toFixed(2),
+      );
+      if (!priceStr) continue;
+      const price = parseFloat(priceStr);
+      if (!price || price <= 0) {
+        alert(`Precio inválido para ${ticker}, salteando.`);
+        continue;
+      }
+      const qtyStr = prompt(`${ticker}: ¿cuántas acciones compraste?`, '1');
+      const qty = parseFloat(qtyStr) || 1;
+
+      await fetch('/api/positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticker, precio_compra: price, cantidad: qty,
+        }),
+      });
+    }
+    modal.remove();
+    refreshPositions();
+    alert('Posiciones registradas. Las verás en la pestaña Portfolio.');
+  });
+}
+
+// =====================================================
+// Alerts config
+// =====================================================
+
+async function refreshAlertsConfig() {
+  try {
+    const r = await fetch('/api/alerts/config');
+    const data = await r.json();
+    $('#smtpHostInput').value = data.smtp_host || '';
+    $('#smtpPortInput').value = data.smtp_port || 587;
+    $('#smtpUserInput').value = data.smtp_user || '';
+    $('#smtpToInput').value = data.smtp_to || '';
+    $('#tgChatIdInput').value = data.telegram_chat_id || '';
+    // Las contraseñas no las exponemos; solo placeholder indicativo
+    if (data.smtp_password_set) $('#smtpPasswordInput').placeholder = '✓ ya configurado — vacío para no cambiar';
+    if (data.telegram_token_set) $('#tgTokenInput').placeholder = '✓ ya configurado — vacío para no cambiar';
+
+    const status = $('#alertsConfigStatus');
+    const enabled = [];
+    if (data.email_enabled) enabled.push('📧 Email');
+    if (data.telegram_enabled) enabled.push('📱 Telegram');
+    if (enabled.length > 0) {
+      status.style.display = 'block';
+      status.className = 'alert success';
+      status.textContent = '✓ Canales activos: ' + enabled.join(' · ');
+    } else {
+      status.style.display = 'block';
+      status.className = 'alert';
+      status.textContent = 'Ningún canal configurado todavía.';
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function saveAlertsConfig(includeEmail, includeTelegram) {
+  const payload = {};
+  if (includeEmail) {
+    payload.smtp_host = $('#smtpHostInput').value.trim();
+    payload.smtp_port = parseInt($('#smtpPortInput').value) || 587;
+    payload.smtp_user = $('#smtpUserInput').value.trim();
+    payload.smtp_password = $('#smtpPasswordInput').value;
+    payload.smtp_to = $('#smtpToInput').value.trim();
+  }
+  if (includeTelegram) {
+    payload.telegram_token = $('#tgTokenInput').value;
+    payload.telegram_chat_id = $('#tgChatIdInput').value.trim();
+  }
+  const r = await fetch('/api/alerts/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) {
+    $('#smtpPasswordInput').value = '';
+    $('#tgTokenInput').value = '';
+    refreshAlertsConfig();
+  } else {
+    alert('Error guardando');
+  }
+}
+
+$('#saveEmailBtn').addEventListener('click', () => saveAlertsConfig(true, false));
+$('#saveTelegramBtn').addEventListener('click', () => saveAlertsConfig(false, true));
+
+async function testAlertChannel(channel) {
+  const r = await fetch('/api/alerts/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ channel }),
+  });
+  const data = await r.json();
+  alert(data.ok ? `✅ ${data.message}` : `✗ ${data.message}`);
+}
+
+$('#testEmailBtn').addEventListener('click', () => testAlertChannel('email'));
+$('#testTelegramBtn').addEventListener('click', () => testAlertChannel('telegram'));
+
+// Cargar al entrar a las tabs
+$$('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    if (tab.dataset.tab === 'portfolio') refreshPositions();
+    if (tab.dataset.tab === 'alerts') refreshAlertsConfig();
+    if (tab.dataset.tab === 'help') loadSectorRules();
+  });
+});
+
+// =====================================================
+// Init
+// =====================================================
+refreshStatus();
+</script>
+</body>
+</html>
